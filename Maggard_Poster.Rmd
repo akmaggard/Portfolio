@@ -1,0 +1,150 @@
+---
+main_topsize: 0.1 #percent coverage of the poster
+main_bottomsize: 0.1
+#ESSENTIALS
+title: '**Climate, HDI, and Urban Greenspaces**'
+author:
+  - name: '**Allen Maggard**'
+    affil: 1
+    main: true
+    orcid: '0000-0002-1099-3857'
+    twitter: zerkzal 
+    email: am7130a@american.edu
+affiliation:
+  - num: 1
+    address: School of International Service, American University
+output: 
+  posterdown::posterdown_betterport:
+    self_contained: false
+    pandoc_args: --mathjax
+    number_sections: false
+bibliography: packages.bib
+link-citations: true
+---
+
+```{r, include=FALSE}
+knitr::opts_chunk$set(echo = FALSE,
+                      warning = FALSE,
+                      tidy = FALSE,
+                      message = FALSE,
+                      fig.align = 'center',
+                      out.width = "100%")
+options(knitr.table.format = "html") 
+```
+
+# Introduction
+
+Does a country's level of human development influence the prevalence of urban greenspaces within its borders? As climate change threatens to upend societies around the world, efforts to maintain or improve the quality of life for urban populations will likely become a key priority for policymakers. Urban greenspaces are essential to the well-being of cities and their inhabitants. I expect to find a positive correlation between a country's Human Development Index (HDI) score and the prevalence of urban greenspaces in that country's cities.    
+
+```{r, include=FALSE}
+knitr::write_bib(c('posterdown', 'rmarkdown','pagedown'), 'packages.bib')
+```
+
+# Data
+
+My analysis is based on 1,037 observations of urban greenspace data collected by Jennifer Stowell of Boston University's School of Public Health. Key variables include City, Country, Major_Geo_Region  (i.e., the region of the world in which the given Country is situated), HDI_level (i.e., the level of a country's HDI score), Climate_region (i.e., the type of climate prevailing in a given City in a given Country), and a series of variables (indicator_2010, indicator_2015, indicator_2020, and indicator_2021) - the latter being the Normalized Difference Vegetation Index (NDVI) score for a given City for the years 2010, 2015, 2020, and 2021. The NDVI score measures the verdancy of a geographic area based on specialized analysis of relevant satellite imagery. 
+
+For ease of data processing,  I recoded the indicator_2021 variable as follows:
+
+- 0 = "Exceptionally Low" NDVI score
+- 1 = "Very Low" NDVI score
+- 2 = "Low" NDVI score
+- 3 = "Moderate" NDVI score
+- 4 = "High" NDVI score
+- 5 = "Very High" NDVI score
+                  
+Note that lower NDVI levels reflect minimal vegetation, whereas higher NDVI levels denote substantial vegetation. 
+
+# Analysis
+
+My analysis weighs the influence of a country's HDI score versus specific natural geographic factors on the prevalance of urban greenspaces in that country's cities as reflected in the NDVI values for 2021 (i.e. the indicator_2021 variable). This model is employed to determine whether natural factors play a greater role than developmental policymaking in the availibility of urban greenspaces. To that end, I employ a multivariate regression analysis to weigh the relative influence of the HDI_level, Major_Geo_Region, and Climate_Region variables on the indicator_2021 variable - which, as noted above, measures cities' NDVI values as of 2021.    
+
+``` {r,include=FALSE}
+greenspace<-read.csv("greenspace_data_share.csv")
+library(tidyverse)
+library(knitr)
+library(kableExtra)
+library(broom)
+library(ggiraphExtra)
+library(modelsummary)
+greenspace <- greenspace %>%
+  mutate(HDI_level=recode(HDI_level,
+                          "Low" = 0,
+                          "Medium" = 1,
+                          "High" = 2,
+                          "Very high" =3))
+
+greenspace <- greenspace %>%
+  mutate(indicator_2021=recode(indicator_2021,
+                          "Exceptionally Low" = 0,
+                          "Very Low" = 1,
+                          "Low" = 2,
+                          "Moderate" = 3,
+                          "High" = 4,
+                          "Very High" = 5))
+
+
+greenspace <- greenspace %>%
+  mutate(Major_Geo_Region=recode(Major_Geo_Region,
+                               "Africa" = 0,
+                               "Asia" = 1,
+                               "Europe" = 2,
+                               "Latin America and the Caribbean" = 3,
+                               "Northern America" = 4,
+                               "Oceania" = 5))
+
+greenspace_stat_single<-lm(indicator_2021 ~ HDI_level, greenspace) 
+
+greenspace_stat<-lm(indicator_2021 ~ HDI_level + Major_Geo_Region + as.factor(Climate_region), greenspace) 
+
+summary(greenspace_stat)
+greenspace_stat2<-lm(indicator_2021 ~ Major_Geo_Region + HDI_level, greenspace)
+summary(greenspace_stat2)
+
+greenspace_stat3<-lm(indicator_2021 ~ Climate_region + HDI_level, greenspace)
+summary(greenspace_stat3)
+```
+
+```{r}
+greenspace %>%
+  ggplot(aes(y=indicator_2021,x=Climate_region, group=Climate_region)) + 
+  geom_jitter() + 
+  geom_smooth(se=FALSE, method="lm") + 
+  labs(x = "Climate type", y= "NDVI level as of 2021")
+```
+
+```{r}
+greenspace %>%
+  ggplot(aes(y=indicator_2021,x=HDI_level)) + 
+  geom_jitter() + 
+  geom_smooth(method="lm") +
+  labs(x= "HDI score", y = "NDVI level as of 2021")
+```
+
+My first regression table generally associates the Climate_region and Major_Geo_Region variables with p-values well below the 0.05 certainty threshold (with the exception of the "Polar" Climate_region variable). By comparison, the HDI_level variable has a relatively higher p-value (0.021). 
+
+```{r}
+gm<-lm(indicator_2021 ~ HDI_level + Major_Geo_Region + Climate_region, greenspace)
+
+modelsummary(gm, statistic = "p.value")
+
+```
+
+My next regression table indicates that isolating the Climate_region variable and removing Major_Geo_Region produces similar results. In this instance HDI_level to an even less statistically significant relationship (0.622) with the indicator_2021 than does Climate_region (all p-values <0.001 with the exception of "Polar" variable).
+
+```{r}
+
+gm3 <- lm(indicator_2021 ~ Climate_region + HDI_level, greenspace)
+modelsummary(gm3, statistic = "p.value")
+```
+
+
+
+
+# Findings
+
+My preliminary research suggests that a country's climatic situation plays a greater role in determining the presence of urban greenspaces than does a country's HDI level. The nearly horizontal line of best fit for the HDI_level regression indicates that HDI levels comparatively exercise minimal influence on urban greenspace availability. These findings have important ramifications for urban design  in an era of catastrophic climate changes. That cities are captive to their respective climates is a geographic factor outside the control of the policymaking community. HDI levels alone may be an inadequately specific measure of greenspace potential. Subsequent analyses may instead focus on determining whether a statistically significant relationship between sustainable infrastructure at the local level and the presence of urban greenspaces. 
+
+# References
+
+- My own immense powers of observation and considerable (though by no means expert) knowledge of R and related markdown packages
